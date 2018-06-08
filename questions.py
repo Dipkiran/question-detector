@@ -16,7 +16,7 @@ def qdataset(partition=0.8):
     text = text1+text2
 
     #sorting sentences from text and combining them
-    sentence1 = text1.split()
+    sentence1 = text1.split("\n")
     sentence2 = text2.split("\n")
     sentences = sentence1 + sentence2
 
@@ -33,9 +33,10 @@ def qdataset(partition=0.8):
     input = [[char_to_id[word]] for sent in sentences for word in sent.split()]
 
     #assign 0 for answer and 1 for question
-    label1 = [1 for sent in sentence1 for word in sent.split()]
-    label2 = [0 for sent in sentence2 for word in sent.split()]
+    label1 = [1 for sent in sentence1]
+    label2 = [0 for sent in sentence2]
     labels = label1 + label2
+    print(len(labels))
 
     #shuffling the data randomly
     new = list(zip(input, labels))
@@ -46,7 +47,7 @@ def qdataset(partition=0.8):
     partition = int(len(input) * partition)
     train_input, train_labels, test_input, test_labels = input[:partition], labels[:partition], \
                                                          input[partition:], labels[partition:]
-    print(train_input, train_labels, test_input, test_labels, char_to_id, id_to_char)
+    # print(train_input, train_labels, test_input, test_labels, char_to_id, id_to_char)
     return train_input, train_labels, test_input, test_labels, char_to_id, id_to_char
 
 def classifier(REPORT_ACCURACY=True):
@@ -72,30 +73,20 @@ class QuestionDetector:
             return text
 
 
-        sentences = text.split()
+        sentences = text.split("\n")
         print(sentences)
-        ques = [[self.char_to_id.get(word, -1)] for sent in sentences for word in sent.split()]
+        ques = [[self.char_to_id.get(word, -1)] for word in sentences]
         print(ques)
-        words =[]
-        for index, [word, bigram] in enumerate(zip(text[:len(ques)], ques)):
-            bigram = np.int32(bigram).reshape((1, 1))
-            print(bigram)
-            isques = self.classifier.predict(bigram)
-            print(isques)
-
-        # finalwords = []
-        # for word in ques:
-        #     isques = self.classifier.predict(word)
-        #     print(isques)
-
-        #     if isques:
-        #         finalwords.append("?")
-        # print(finalwords)
-
+        isques = self.classifier.predict(ques)
+        print(isques)
+        if isques:
+            print("it is a question")
+        else:
+            print("answer")
 
 
 
 if __name__ == '__main__':
-    text = "what is your hobby"
+    text = "how are you"
     tokenizer = QuestionDetector()
     tokenizer.question(text)
