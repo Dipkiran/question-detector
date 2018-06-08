@@ -46,13 +46,11 @@ def qdataset(partition=0.8):
     partition = int(len(input) * partition)
     train_input, train_labels, test_input, test_labels = input[:partition], labels[:partition], \
                                                          input[partition:], labels[partition:]
-
-    return(train_input, train_labels, test_input, test_labels, char_to_id, id_to_char)
+    print(train_input, train_labels, test_input, test_labels, char_to_id, id_to_char)
+    return train_input, train_labels, test_input, test_labels, char_to_id, id_to_char
 
 def classifier(REPORT_ACCURACY=True):
     train_input, train_labels, test_input, test_labels, char_to_id, id_to_char = qdataset()
-
-
     classifier = SVC()
     classifier.fit(X=train_input, y=train_labels)
     if REPORT_ACCURACY:
@@ -60,4 +58,44 @@ def classifier(REPORT_ACCURACY=True):
         print('Accuracy : ', "%.2f" % score)
 
 
-classifier()
+    return classifier, char_to_id, id_to_char
+
+class QuestionDetector:
+
+    def __init__(self):
+        self.classifier, self.char_to_id, self.id_to_char = classifier()
+
+    def question(self, text):
+
+        # Check if user input is empty
+        if text == '' or text is None:
+            return text
+
+
+        sentences = text.split()
+        print(sentences)
+        ques = [[self.char_to_id.get(word, -1)] for sent in sentences for word in sent.split()]
+        print(ques)
+        words =[]
+        for index, [word, bigram] in enumerate(zip(text[:len(ques)], ques)):
+            bigram = np.int32(bigram).reshape((1, 1))
+            print(bigram)
+            isques = self.classifier.predict(bigram)
+            print(isques)
+
+        # finalwords = []
+        # for word in ques:
+        #     isques = self.classifier.predict(word)
+        #     print(isques)
+
+        #     if isques:
+        #         finalwords.append("?")
+        # print(finalwords)
+
+
+
+
+if __name__ == '__main__':
+    text = "what is your hobby"
+    tokenizer = QuestionDetector()
+    tokenizer.question(text)
