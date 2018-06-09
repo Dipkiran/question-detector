@@ -4,11 +4,10 @@ from nltk.classify.scikitlearn import SklearnClassifier
 import nltk
 import pickle
 import os
-import time
-import numpy as np
+
 def qdataset(partition=0.8):
 
-    #taking input from two files: question and answer
+    #taking input from two files: question.txt and answer.txt
     text1 = open(file='question.txt', mode='r', encoding='utf8').read()
     text2 = open(file='answer.txt', mode='r', encoding='utf8').read()
 
@@ -43,50 +42,74 @@ def qdataset(partition=0.8):
     random.shuffle(new)
     input, labels = zip(*new)
 
-    #diving data into test and train data
+    #dividing data into test and train data
     partition = int(len(input) * partition)
     train_input, train_labels, test_input, test_labels = input[:partition], labels[:partition], \
                                                          input[partition:], labels[partition:]
-    # print(train_input, train_labels, test_input, test_labels, char_to_id, id_to_char)
+
     return train_input, train_labels, test_input, test_labels, char_to_id, id_to_char
 
-def classifier(REPORT_ACCURACY=True):
-    train_input, train_labels, test_input, test_labels, char_to_id, id_to_char = qdataset()
-    classifier = SVC()
-    classifier.fit(X=train_input, y=train_labels)
-    if REPORT_ACCURACY:
-        score = classifier.score(X=test_input, y=test_labels)
-        print('Accuracy : ', "%.2f" % score)
+def classifier(REPORT_ACCURACY=True, classifier_file="question.txt"):
+
+    if not os.path.exists(classifier_file):
+        print("1. Prepare dataset")
+        train_input, train_labels, test_input, test_labels, char_to_id, id_to_char = qdataset()
+        print('No of train samples {}, test samples {}'.format(len(train_labels), len(test_input)))
+
+        print("2. Initialize classifier and train")
+        classifier = SVC()
+        classifier.fit(X=train_input, y=train_labels)
+
+        file = open("classifier_file.pickle", mode='wb')
+        pickle.dump(classifier, file, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(char_to_id, file, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(id_to_char, file, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-    return classifier, char_to_id, id_to_char
+        if REPORT_ACCURACY:
+            score = classifier.score(X=test_input, y=test_labels)
+            print('Accuracy : ', "%.2f" % score)
+
+    else:
+        print('Reusing pretrained classifier')
+        file = open("classifier_file.pickle", mode='rb')
+        classifier = pickle.load(file)
+        char_to_id = pickle.load(file)
+        id_to_char = pickle.load(file)
+
+
+        return classifier, char_to_id, id_to_char
 
 class QuestionDetector:
-
+    """ check whether the given statement is question or not"""
     def __init__(self):
-        self.classifier, self.char_to_id, self.id_to_char = classifier()
+        self.classifier, self.char_to_id, self.id_to_char = classifier(classifier_file="question.txt")
 
     def question(self, text):
-
+        """
+                Algorithm:
+                    Generates sentences from a text.
+                    Classifier predicts if a sentence is a question or not.
+                    print the output
+        """
         # Check if user input is empty
         if text == '' or text is None:
             return text
 
-
+        # split user text into sentences and compute sentid
         sentences = text.split("\n")
-        print(sentences)
-        ques = [[self.char_to_id.get(word, -1)] for word in sentences]
-        print(ques)
-        isques = self.classifier.predict(ques)
-        print(isques)
+        sentid = [[self.char_to_id.get(word, -1)] for word in sentences]
+
+        isques = self.classifier.predict(sentid) #predicts if a sentence is a question or not.
+
         if isques:
-            print("it is a question")
+            print("it is a question") #if the text is the question
         else:
-            print("answer")
+            print("answer") #if text is not the question
 
 
 
 if __name__ == '__main__':
-    text = "how are you"
+    text = "what is your name"
     tokenizer = QuestionDetector()
     tokenizer.question(text)
