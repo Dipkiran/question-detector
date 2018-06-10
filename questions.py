@@ -1,11 +1,12 @@
 import random
 from sklearn.svm import SVC
-from nltk.classify.scikitlearn import SklearnClassifier
-import nltk
 import pickle
 import os
+from sklearn.ensemble import RandomForestClassifier
+import numpy as np
 
-
+from nltk.tokenize import wordpunct_tokenize
+MAX_LEN = 15
 def qdataset(partition=0.8):
     # taking input from two files: question.txt and answer.txt
     text1 = open(file='question.txt', mode='r', encoding='utf8').read()
@@ -18,7 +19,6 @@ def qdataset(partition=0.8):
     sentence1 = text1.split("\n")
     sentence2 = text2.split("\n")
     sentences = sentence1 + sentence2
-
     # finding number of words in a sentence
     text = text.split()
     vocab = list(set(text))
@@ -28,14 +28,22 @@ def qdataset(partition=0.8):
     char_to_id = {ch: id for id, ch in enumerate(vocab)}
     id_to_char = {id: ch for id, ch in enumerate(vocab)}
 
+    input = []
     # replace word in sentence by some id
-    input = [[char_to_id[word]] for sent in sentences for word in sent.split()]
+    for sent in sentences:
+        vector = [char_to_id[word] for word in wordpunct_tokenize(sent)]
+        padding = [-1]*MAX_LEN
+        vector +=padding[:MAX_LEN-len(vector)]
+        input.append(vector)
+
+
+
 
     # assign 0 for answer and 1 for question
     label1 = [1 for sent in sentence1]
     label2 = [0 for sent in sentence2]
     labels = label1 + label2
-    print(len(labels))
+
 
     # shuffling the data randomly
     new = list(zip(input, labels))
@@ -46,44 +54,43 @@ def qdataset(partition=0.8):
     partition = int(len(input) * partition)
     train_input, train_labels, test_input, test_labels = input[:partition], labels[:partition], \
                                                          input[partition:], labels[partition:]
-
     return train_input, train_labels, test_input, test_labels, char_to_id, id_to_char
 
 
-def quesclassifier(REPORT_ACCURACY=True, classifier_file="classifier_file.pickle"):
-    if not os.path.exists(classifier_file):
-        print("1. Prepare dataset")
+def quesclassifier(REPORT_ACCURACY=True):
+
+        # print("1. Prepare dataset")
         train_input, train_labels, test_input, test_labels, char_to_id, id_to_char = qdataset()
-        print('No of train samples {}, test samples {}'.format(len(train_labels), len(test_input)))
+        # print('No of train samples {}, test samples {}'.format(len(train_labels), len(test_input)))
 
-        print("2. Initialize classifier and train")
-        classifier = SVC()
+        # print("2. Initialize classifier and train")
+        classifier = RandomForestClassifier()
         classifier.fit(X=train_input, y=train_labels)
-
-        file = open(classifier_file, mode='wb')
-        pickle.dump(classifier, file, protocol=pickle.HIGHEST_PROTOCOL)
-        pickle.dump(char_to_id, file, protocol=pickle.HIGHEST_PROTOCOL)
-        pickle.dump(id_to_char, file, protocol=pickle.HIGHEST_PROTOCOL)
+        #
+        # file = open(classifier_file, mode='wb')
+        # pickle.dump(classifier, file, protocol=pickle.HIGHEST_PROTOCOL)
+        # pickle.dump(char_to_id, file, protocol=pickle.HIGHEST_PROTOCOL)
+        # pickle.dump(id_to_char, file, protocol=pickle.HIGHEST_PROTOCOL)
 
         if REPORT_ACCURACY:
             score = classifier.score(X=test_input, y=test_labels)
             print('Accuracy : ', "%.2f" % score)
 
-    else:
-        print('Reusing pretrained classifier')
-        file = open(classifier_file, mode='rb')
-        classifier = pickle.load(file)
-        char_to_id = pickle.load(file)
-        id_to_char = pickle.load(file)
+    # else:
+    #     print('Reusing pretrained classifier')
+    #     file = open(classifier_file, mode='rb')
+    #     classifier = pickle.load(file)
+    #     char_to_id = pickle.load(file)
+    #     id_to_char = pickle.load(file)
 
-    return classifier, char_to_id, id_to_char
+        return classifier, char_to_id, id_to_char
 
 
 class QuestionDetector:
     """ check whether the given statement is question or not"""
 
     def __init__(self):
-        self.classifier, self.char_to_id, self.id_to_char = quesclassifier(classifier_file="classifier_file.pickle")
+        self.classifier, self.char_to_id, self.id_to_char = quesclassifier()
 
     def question(self, text):
         """
@@ -97,10 +104,17 @@ class QuestionDetector:
             return text
 
         # split user text into sentences and compute sentid
-        sentences = text.split("\n")
-        sentid = [[self.char_to_id.get(word, -1)] for word in sentences]
+        sentences = text.split()
+        print(sentences)
+        sentid = [self.char_to_id.get(word, -1) for word in sentences]
+        padding = [-1] * MAX_LEN
+        sentid += padding[:MAX_LEN - len(sentid)]
+        # print(sentid)
+        send = np.int32(sentid).reshape((1, -1))
+        # print(send)
 
-        isques = self.classifier.predict(sentid)  # predicts if a sentence is a question or not.
+        isques = self.classifier.predict(send)
+        print(isques)# predicts if a sentence is a question or not.
 
         if isques:
             print(sentences)  # if the text is the question
@@ -108,11 +122,9 @@ class QuestionDetector:
 
 
 if __name__ == '__main__':
-    text = ['what are you doing',
-            'how are you',
-            'i am fine',
-            'did you eat',
-            'kathmandu is the capital of nepal']
+    text = ['how are you','i am fine', 'what do you do', 'where are you from','my name is dip']
+    # tokenizer = QuestionDetector()
+    # tokenizer.question(text)
 
     for check in text:
         tokenizer = QuestionDetector()
